@@ -250,7 +250,7 @@ class NeuralNetwork:
             file_path (str): The path to the model file.
 
         Returns:
-            None
+            tuple: A tuple containing the weights and biases.
         """
         data = np.load(file_path)
         self.weights_input_hidden1 = data['weights_input_hidden1']
@@ -259,6 +259,7 @@ class NeuralNetwork:
         self.biases_hidden2 = data['biases_hidden2']
         self.weights_hidden2_output = data['weights_hidden2_output']
         self.biases_output = data['biases_output']
+        return self.weights_input_hidden1, self.biases_hidden1, self.weights_hidden1_hidden2, self.biases_hidden2, self.weights_hidden2_output, self.biases_output
 
     def load_data(self, directory):
         """
