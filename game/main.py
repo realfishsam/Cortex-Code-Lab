@@ -105,8 +105,8 @@ def main():
 
     drawing = False
     erasing = False
-    brush_size = 25  # Max brush size indicating 100%
-    size_percentage = 100
+    brush_size = 25
+    size_percentage = 75
     last_pos = None
 
     font = pygame.font.SysFont(None, 36)
