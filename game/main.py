@@ -3,23 +3,9 @@ import random
 import numpy as np
 import cv2
 import pprint
-
-# Neural network helper functions
-def sigmoid(x):
-    # Clip the input values to prevent numerical overflow
-    x_clipped = np.clip(x, -20, 20)
-    return 1 / (1 + np.exp(-x_clipped))
-
-def load_model(file_path):
-    # Load the neural network parameters from a .npz file
-    data = np.load(file_path, allow_pickle=True)
-    weights_input_hidden1 = data['weights_input_hidden1']
-    biases_hidden1 = data['biases_hidden1']
-    weights_hidden1_hidden2 = data['weights_hidden1_hidden2']
-    biases_hidden2 = data['biases_hidden2']
-    weights_hidden2_output = data['weights_hidden2_output']
-    biases_output = data['biases_output']
-    return weights_input_hidden1, biases_hidden1, weights_hidden1_hidden2, biases_hidden2, weights_hidden2_output, biases_output
+import sys
+sys.path.append('/Users/samueltinnerholm/Documents/GitHub/Cortex-Code-Lab/game/CORTEX_CODE/')
+from neuralnet import NeuralNetwork
 
 def find_centroid(image):
     # Convert to a binary image, white areas (digit) are True
@@ -47,43 +33,7 @@ def center_digit(image, size):
 
     return centered_image
 
-def neural_predict(canvas_surface, model_path, verbose=False):
-    # Convert the canvas surface to a string buffer and then to a numpy array
-    canvas_string = pygame.image.tostring(canvas_surface, 'RGB')
-    canvas_np = np.frombuffer(canvas_string, np.uint8).reshape((224, 224, 3))
-
-    # Convert from RGB to grayscale
-    canvas_gray = cv2.cvtColor(canvas_np, cv2.COLOR_RGB2GRAY)
-
-    # Center the digit on the canvas
-    canvas_centered = center_digit(canvas_gray, canvas_gray.shape)
-
-    # Resize to 28x28
-    canvas_resized = cv2.resize(canvas_centered, (28, 28))
-
-    # Normalize the pixel values
-    canvas_normalized = canvas_resized.flatten() / 255.0
-
-    # Load the model
-    w_i_h1, b_h1, w_h1_h2, b_h2, w_h2_o, b_o = load_model(model_path)
-
-    # Forward pass to get the prediction
-    hidden1 = sigmoid(np.dot(canvas_normalized, w_i_h1) + b_h1)
-    hidden2 = sigmoid(np.dot(hidden1, w_h1_h2) + b_h2)
-    output = sigmoid(np.dot(hidden2, w_h2_o) + b_o)
-
-    if verbose:
-        # map each output to a number, eg. 0 goes to index 0, and pprint the output and the prediction
-        output_map = {0: '0', 1: '1', 2: '2', 3: '3', 4: '4',
-                    5: '5', 6: '6', 7: '7', 8: '8', 9: '9'}
-        pprint.pprint({output_map[i]: output[i] for i in range(len(output))})
-        print()
-
-    # The predicted class is the index with the highest probability
-    prediction = np.argmax(output)
-    return prediction
-
-def main():
+def main():   
     pygame.init()
     width, height = 1000, 800
     canvas_resolution = (224, 224)
@@ -111,19 +61,13 @@ def main():
 
     font = pygame.font.SysFont(None, 36)
     
-    # Replace this path with the actual path to your neural network model file
     model_path = '82.npz'
+    neural_net = NeuralNetwork()  # Create an instance of the NeuralNetwork
+    neural_net.load_model(model_path)  # Load the model
+
     prediction_number = None
 
-    def predict():
-        return random.randint(0, 9)  # Returns a random integer between 0 and 9
-
-    # Function to display brush size on the screen
-    def display_brush_size():
-        text = font.render(f"Size: {size_percentage}%", True, outline_color)
-        screen.blit(text, (10, 10))
-
-    # Function to update the preview
+    # Update the preview and prediction display
     def update_preview():
         scaled_preview = pygame.transform.smoothscale(canvas, preview_resolution)
         preview.blit(scaled_preview, (0, 0))
@@ -143,7 +87,10 @@ def main():
             prediction_rect = prediction_text.get_rect(center=(3 * width // 4, height // 2 + canvas_resolution[1] // 2 + 20))
             screen.blit(prediction_text, prediction_rect.topleft)
 
-    # Function to display the button
+    def display_brush_size():
+        text = font.render(f"Size: {size_percentage}%", True, outline_color)
+        screen.blit(text, (10, 10))
+
     def display_button():
         pygame.draw.rect(screen, button_color, button_rect)
         text = font.render(button_text, True, (0, 0, 0))
@@ -160,21 +107,45 @@ def main():
         canvas_array = pygame.surfarray.array3d(canvas_surface)
         return np.all(canvas_array == 0)
 
-    while True:                  
-        if is_canvas_blank(canvas):
-            prediction_number = None
-        else:
-            prediction_number = neural_predict(canvas, model_path)
+    def neural_predict(canvas_surface, verbose=False):
+        canvas_string = pygame.image.tostring(canvas_surface, 'RGB')
+        canvas_np = np.frombuffer(canvas_string, np.uint8).reshape((224, 224, 3))
+        canvas_gray = cv2.cvtColor(canvas_np, cv2.COLOR_RGB2GRAY)
+        canvas_centered = center_digit(canvas_gray, canvas_gray.shape)
+        canvas_resized = cv2.resize(canvas_centered, (28, 28))
+        canvas_normalized = canvas_resized.flatten() / 255.0
 
+        hidden1 = neural_net.sigmoid(np.dot(canvas_normalized, neural_net.weights_input_hidden1) + neural_net.biases_hidden1)
+        hidden2 = neural_net.sigmoid(np.dot(hidden1, neural_net.weights_hidden1_hidden2) + neural_net.biases_hidden2)
+        output = neural_net.sigmoid(np.dot(hidden2, neural_net.weights_hidden2_output) + neural_net.biases_output)
+
+        if verbose:
+            output_map = {i: str(output[i]) for i in range(10)}
+            pprint.pprint(output_map)
+            print()
+
+        prediction = np.argmax(output)
+        return prediction
+    
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
+
+            if event.type == pygame.MOUSEWHEEL:
+                if event.y > 0:  # Scroll up to increase size
+                    brush_size = min(brush_size + 1, 20)
+                elif event.y < 0:  # Scroll down to decrease size
+                    brush_size = max(brush_size - 1, 1)
+                size_percentage = int((brush_size / 20.0) * 100)  # Update size percentage
+                if size_percentage > 100:
+                    size_percentage = 100
 
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if button_rect.collidepoint(event.pos):
+                if button_rect.collidepoint(event.pos):  # Check if the button is clicked
                     clear_canvas()
-                else:
+                elif canvas.get_rect(center=(width // 4, height // 2)).collidepoint(event.pos):
                     if event.button == 1:  # Left Click to Draw
                         drawing = True
                     elif event.button == 3:  # Right Click to Erase
@@ -187,16 +158,6 @@ def main():
                     erasing = False
                     last_pos = None
 
-            if event.type == pygame.MOUSEWHEEL:
-                if event.y > 0:  # Scroll up to increase size
-                    brush_size = min(brush_size + 1, 20)
-                elif event.y < 0:  # Scroll down to decrease size
-                    brush_size = max(brush_size - 1, 1)
-                size_percentage = int((brush_size / 20.0) * 100)  # Update size percentage
-                if size_percentage > 100:
-                    size_percentage = 100
-
-
             if event.type == pygame.MOUSEMOTION:
                 if drawing or erasing:
                     color = (255, 255, 255) if drawing else (0, 0, 0)
@@ -206,7 +167,6 @@ def main():
                         new_pos = (event.pos[0] - canvas_rect.left, event.pos[1] - canvas_rect.top)
                         # Draw a line on the canvas Surface
                         pygame.draw.line(canvas, color, canvas_pos, new_pos, brush_size)
-                    # Update the last_pos with the current mouse position
                     last_pos = event.pos
 
         # Clear the screen and blit the canvas and the preview to the screen surface
@@ -219,6 +179,10 @@ def main():
 
         # Update the preview and prediction display
         update_preview()
+
+        if not is_canvas_blank(canvas):
+            prediction_number = neural_predict(canvas)
+
         if prediction_number is not None:
             prediction_text = font.render(f"Prediction: {prediction_number}", True, outline_color)
             prediction_rect = prediction_text.get_rect(center=(3 * width // 4, height // 2 + canvas_resolution[1] // 2 + 20))
@@ -229,6 +193,8 @@ def main():
         display_button()
 
         pygame.display.flip()
+
+    
 
 if __name__ == "__main__":
     main()
