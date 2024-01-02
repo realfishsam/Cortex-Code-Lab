@@ -8,6 +8,18 @@ sys.path.append('/Users/samueltinnerholm/Documents/GitHub/Cortex-Code-Lab/game/C
 from neuralnet import NeuralNetwork
 
 def find_centroid(image):
+    """
+    Calculate the centroid of the white areas in a binary image.
+    This function converts the given image to a binary image where the white areas 
+    (digit) are marked as True. It then calculates the coordinates of the center of 
+    mass of these white areas. If the image is completely black, it returns None.
+    
+    Parameters:
+    image (numpy.ndarray): The image in which the centroid is to be found.
+
+    Returns:
+    tuple: The coordinates (x, y) of the centroid, or (None, None) if the image is black.
+    """
     # Convert to a binary image, white areas (digit) are True
     binary_image = image > 0
     # Calculate the coordinates of the center of mass of the white areas
@@ -18,6 +30,19 @@ def find_centroid(image):
     return int(centroid[1]), int(centroid[0])  # return (cx, cy)
 
 def center_digit(image, size):
+    """
+    Center the digit in the given image.
+    This function finds the centroid of the digit in the image and calculates the necessary
+    shift to center the digit. It then applies this shift using an affine transformation.
+    If the image is completely black, it returns the original image.
+    
+    Parameters:
+    image (numpy.ndarray): The image containing the digit to be centered.
+    size (tuple): The dimensions (height, width) to which the image should be centered.
+
+    Returns:
+    numpy.ndarray: The centered image.
+    """
     # Find the centroid of the digit
     cx, cy = find_centroid(image)
     if cx is None:
