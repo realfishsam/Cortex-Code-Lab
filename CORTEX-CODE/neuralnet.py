@@ -3,7 +3,24 @@ import cv2
 import os
 
 class NeuralNetwork:
+    """
+    This class implements a simple feedforward neural network for image classification.
+
+    Attributes:
+        weights_input_hidden1 (numpy.ndarray): Weights matrix for input to first hidden layer.
+        biases_hidden1 (numpy.ndarray): Bias vector for the first hidden layer.
+        weights_hidden1_hidden2 (numpy.ndarray): Weights matrix for first to second hidden layer.
+        biases_hidden2 (numpy.ndarray): Bias vector for the second hidden layer.
+        weights_hidden2_output (numpy.ndarray): Weights matrix for second hidden layer to output.
+        biases_output (numpy.ndarray): Bias vector for the output layer.
+    """
+    
     def __init__(self):
+        """
+        Initialize the neural network with all weights and biases set to None.
+        These weights and biases are for three layers: input to hidden layer 1, 
+        hidden layer 1 to hidden layer 2, and hidden layer 2 to output layer.
+        """
         self.weights_input_hidden1 = None
         self.biases_hidden1 = None
         self.weights_hidden1_hidden2 = None
@@ -12,23 +29,82 @@ class NeuralNetwork:
         self.biases_output = None
 
     def relu(self, x):
+        """
+        Apply the ReLU activation function.
+
+        Args:
+            x (numpy.ndarray): Input array or matrix.
+
+        Returns:
+            numpy.ndarray: ReLU applied output.
+        """
         return np.maximum(0, x)
 
     def relu_derivative(self, x):
+        """
+        Calculate the derivative of the ReLU function.
+
+        Args:
+            x (numpy.ndarray): Input array or matrix.
+
+        Returns:
+            numpy.ndarray: Derivative of ReLU.
+        """
         return (x > 0).astype(float)
 
     def sigmoid(self, x):
+        """
+        Apply the sigmoid activation function.
+
+        Args:
+            x (numpy.ndarray): Input array or matrix.
+
+        Returns:
+            numpy.ndarray: Sigmoid function output.
+        """
         return 1 / (1 + np.exp(-x))
 
     def sigmoid_derivative(self, x):
+        """
+        Calculate the derivative of the sigmoid function.
+
+        Args:
+            x (numpy.ndarray): Input array or matrix.
+
+        Returns:
+            numpy.ndarray: Derivative of sigmoid.
+        """
         return self.sigmoid(x) * (1 - self.sigmoid(x))
 
     def cross_entropy(self, y_pred, y_true):
+        """
+        Compute the cross-entropy loss.
+
+        Args:
+            y_pred (numpy.ndarray): Predicted output probabilities.
+            y_true (numpy.ndarray): True labels.
+
+        Returns:
+            float: Cross entropy loss.
+        """
         m = y_true.shape[0]
         loss = -1/m * np.sum(y_true * np.log(y_pred + 1e-15))
         return loss
 
     def augment_image(self, image, scale_range=(1.0, 1.0), angle_range=(0, 0), translation_range=(0, 0), white_noise_percentage=0.0):
+        """
+        Apply augmentation to the image including scaling, rotation, translation, and adding white noise.
+
+        Args:
+            image (numpy.ndarray): The input image.
+            scale_range (tuple): Range of scaling factors (min, max).
+            angle_range (tuple): Range of rotation angles in degrees (min, max).
+            translation_range (tuple): Range of translation values (min, max).
+            white_noise_percentage (float): Percentage of pixels to be replaced with white noise.
+
+        Returns:
+            numpy.ndarray: The augmented image, flattened into a 1D array.
+        """
         input_size = 28 * 28  # Since the image is 28x28
 
         # Reshape the image to its original 28x28 shape
@@ -59,7 +135,23 @@ class NeuralNetwork:
         # return image.flatten(), scale_level, angle_level, (tx, ty)
         return image.flatten()
 
-    def train(self, X, y, epochs, learning_rate, batch_size, early_stopping_patience, graph=False, augment=False):
+    def train(self, X, y, epochs, learning_rate, batch_size, early_stopping_patience, graph=False, augment_settings=None):
+        """
+        Train the neural network using backpropagation and stochastic gradient descent.
+
+        Args:
+            X (numpy.ndarray): Input features.
+            y (numpy.ndarray): Target values.
+            epochs (int): Number of training epochs.
+            learning_rate (float): Learning rate.
+            batch_size (int): Size of the batch for each iteration.
+            early_stopping_patience (int): Number of epochs to wait for improvement before stopping.
+            graph (bool): If True, plot the training loss and accuracy.
+            augment_settings (dict, optional): Dictionary containing settings for data augmentation.
+
+        Returns:
+            None
+        """
         loss_history = []
         accuracy_history = []
 
@@ -75,8 +167,13 @@ class NeuralNetwork:
                 X_batch = X_shuffled[i:i + batch_size]
                 y_batch = y_shuffled[i:i + batch_size]
 
-                if augment:
-                    X_batch = np.array([self.augment_image(image) for image in X_batch])
+                if augment_settings:
+                    scale_range = augment_settings.get('scale_range', (1.0, 1.0))
+                    angle_range = augment_settings.get('angle_range', (0, 0))
+                    translation_range = augment_settings.get('translation_range', (0, 0))
+                    white_noise_percentage = augment_settings.get('white_noise_percentage', 0.0)
+
+                    X_batch = np.array([self.augment_image(image, scale_range, angle_range, translation_range, white_noise_percentage) for image in X_batch])
 
                 hidden1 = self.sigmoid(np.dot(X_batch, self.weights_input_hidden1) + self.biases_hidden1)
                 hidden2 = self.sigmoid(np.dot(hidden1, self.weights_hidden1_hidden2) + self.biases_hidden2)
@@ -128,15 +225,33 @@ class NeuralNetwork:
             plt.savefig(f'loss_and_accuracy_{learning_rate}.png')
        
     def save_model(self, file_path):
+        """
+        Saves the model weights and biases to a file.
+
+        Args:
+            file_path (str): The path where the model should be saved.
+
+        Returns:
+            None
+        """
         np.savez(file_path,
-             weights_input_hidden1=weights_input_hidden1,
-             biases_hidden1=biases_hidden1,
-             weights_hidden1_hidden2=weights_hidden1_hidden2,
-             biases_hidden2=biases_hidden2,
-             weights_hidden2_output=weights_hidden2_output,
-             biases_output=biases_output)
+             weights_input_hidden1=self.weights_input_hidden1,
+             biases_hidden1=self.biases_hidden1,
+             weights_hidden1_hidden2=self.weights_hidden1_hidden2,
+             biases_hidden2=self.biases_hidden2,
+             weights_hidden2_output=self.weights_hidden2_output,
+             biases_output=self.biases_output)
 
     def load_model(self, file_path):
+        """
+        Loads the model weights and biases from a file.
+
+        Args:
+            file_path (str): The path to the model file.
+
+        Returns:
+            None
+        """
         data = np.load(file_path)
         self.weights_input_hidden1 = data['weights_input_hidden1']
         self.biases_hidden1 = data['biases_hidden1']
@@ -146,6 +261,15 @@ class NeuralNetwork:
         self.biases_output = data['biases_output']
 
     def load_data(self, directory):
+        """
+        Loads and preprocesses images and labels from a given directory.
+
+        Args:
+            directory (str): Path to the directory containing image data.
+
+        Returns:
+            tuple: A tuple containing arrays of images and labels.
+        """
         images = []
         labels = []
         for label_folder in os.listdir(directory):
@@ -163,6 +287,16 @@ class NeuralNetwork:
         return np.array(images), np.array(labels)
 
     def one_hot_encode(self, labels, num_classes):
+        """
+        Converts a vector of labels to one-hot encoded format.
+
+        Args:
+            labels (numpy.ndarray): Array of integer labels.
+            num_classes (int): Number of classes for one-hot encoding.
+
+        Returns:
+            numpy.ndarray: One-hot encoded label array.
+        """
         labels = np.asarray(labels, dtype=np.int_)
 
         # Initialize matrix of zeros
