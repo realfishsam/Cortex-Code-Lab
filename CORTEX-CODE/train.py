@@ -36,8 +36,13 @@ y = nn.one_hot_encode(y, num_classes)
 print("Shape of X:", X.shape)  # Should be (number_of_samples, 784)
 print("Shape of y:", y.shape)  # Should be (number_of_samples, num_classes)
 
+augment_settings = {
+    'scale_range': (0.8, 1.2),
+    'angle_range': (-30, 30),
+}
+
 # Train the neural network
-nn.train(X, y, epochs=500, learning_rate=8e-4, batch_size=32, early_stopping_patience=10, graph=True, augment=True)
+nn.train(X, y, epochs=500, learning_rate=8e-4, batch_size=32, early_stopping_patience=10, graph=True, augment_settings=augment_settings)
 
 # Save the trained model
 nn.save_model('my_neural_network.npz')
