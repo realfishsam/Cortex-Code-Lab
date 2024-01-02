@@ -1,5 +1,11 @@
 import numpy as np
 
+def relu(x):
+    return np.maximum(0, x)
+
+def relu_derivative(x):
+    return (x > 0).astype(float)
+
 # Define the sigmoid activation function and its derivative
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -7,11 +13,62 @@ def sigmoid(x):
 def sigmoid_derivative(x):
     return sigmoid(x) * (1 - sigmoid(x))
 
+def cross_entropy(y_pred, y_true):
+    # y_pred - predictions from neural network, y_true - one hot encoded true labels
+    m = y_true.shape[0]
+    loss = -1/m * np.sum(y_true * np.log(y_pred + 1e-15))  # Adding a small value to avoid log(0)
+    return loss
+
+def conv2d(X, W, b, stride=1, padding=0):
+    """
+    A naive implementation of the forward pass for a convolutional layer.
+
+    The input consists of N data points, each with C channels, height H and width W.
+    We convolve each input with F different filters, where each filter spans
+    all C channels and has height HH and width WW.
+
+    Input:
+    - X: Input data of shape (N, C, H, W)
+    - W: Filter weights of shape (F, C, HH, WW)
+    - b: Biases, of shape (F,)
+    - stride: The number of pixels between adjacent receptive fields in the
+      horizontal and vertical directions.
+    - padding: The number of pixels that will be used to zero-pad the input.
+    
+    Returns a tuple of:
+    - out: Output data, of shape (N, F, H', W') where H' and W' are given by
+      H' = 1 + (H + 2 * padding - HH) / stride
+      W' = 1 + (W + 2 * padding - WW) / stride
+    """
+    N, C, H, W = X.shape
+    F, _, HH, WW = W.shape
+    H_out = 1 + (H + 2 * padding - HH) // stride
+    W_out = 1 + (W + 2 * padding - WW) // stride
+    out = np.zeros((N, F, H_out, W_out))
+
+    # Apply padding to the input
+    X_padded = np.pad(X, ((0,), (0,), (padding,), (padding,)), mode='constant', constant_values=0)
+
+    for n in range(N):
+        for f in range(F):
+            for height in range(0, H_out):
+                for width in range(0, W_out):
+                    h_start = height * stride
+                    h_end = h_start + HH
+                    w_start = width * stride
+                    w_end = w_start + WW
+                    
+                    window = X_padded[n, :, h_start:h_end, w_start:w_end]
+                    
+                    out[n, f, height, width] = np.sum(window * W[f, :, :, :]) + b[f]
+
+    return out
+
 # Initialize weights and biases with a specific seed for reproducibility
 np.random.seed(42)
 input_size = 28 * 28  # Input layer size for MNIST images
 hidden1_size = 32  # First hidden layer
-hidden2_size = 16  # Second hidden layer
+hidden2_size = 32  # Second hidden layer
 output_size = 10  # Output layer size (digits 0-9)
 
 # Weights initialization
@@ -24,50 +81,36 @@ biases_hidden1 = np.random.randn(hidden1_size)
 biases_hidden2 = np.random.randn(hidden2_size)
 biases_output = np.random.randn(output_size)
 
-def augment_image(image):
+def augment_image(image, scale_range=(1.0, 1.0), angle_range=(0, 0), translation_range=(0, 0), white_noise_percentage=0.0):
+    input_size = 28 * 28  # Since the image is 28x28
+
     # Reshape the image to its original 28x28 shape
     image = image.reshape((28, 28))
     
-    # Rotate the image by a random angle within -30 to 30 degrees
-    angle = np.random.uniform(-30, 30)
-    M = cv2.getRotationMatrix2D((14, 14), angle, 1.0)
-    rotated_image = cv2.warpAffine(image, M, (28, 28))
-
-    # Generate random noise
-    randFloat = max(0.1, np.random.rand() * 0.25)
-    noise = np.random.rand(28, 28) * randFloat
-    noisy_image = rotated_image + noise
-
-    # Blur the image
-    blurred_image = cv2.GaussianBlur(noisy_image, (5, 5), 0)
-
-    # Scale the image randomly
-    scale = np.random.uniform(0.8, 1.2)  # Scale between 80% and 120%
-    resized_image = cv2.resize(blurred_image, None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
+    # Choose a random scale, angle, and translation from the given ranges
+    scale_level = np.random.uniform(scale_range[0], scale_range[1])
+    angle_level = np.random.uniform(angle_range[0], angle_range[1])
+    tx = np.random.randint(translation_range[0], translation_range[1] + 1)
+    ty = np.random.randint(translation_range[0], translation_range[1] + 1)
     
-    # Ensure resized_image has at least 28x28 dimensions
-    if resized_image.shape[0] < 28 or resized_image.shape[1] < 28:
-        resized_image = cv2.resize(resized_image, (28, 28), interpolation=cv2.INTER_AREA)
-    
-    # Make sure the scaled image has shape (28, 28), fill the borders with black if necessary
-    if resized_image.shape[0] > 28 or resized_image.shape[1] > 28:
-        cropped_image = resized_image[int((resized_image.shape[0] - 28) / 2):int((resized_image.shape[0] + 28) / 2),
-                                      int((resized_image.shape[1] - 28) / 2):int((resized_image.shape[1] + 28) / 2)]
-    else:
-        border_size_x = (28 - resized_image.shape[0]) // 2
-        border_size_y = (28 - resized_image.shape[1]) // 2
-        cropped_image = cv2.copyMakeBorder(resized_image, border_size_x, border_size_x, border_size_y, border_size_y, cv2.BORDER_CONSTANT, value=0)
+    # Apply the rotation and scale transformations
+    M = cv2.getRotationMatrix2D((14, 14), angle_level, scale_level)
+    image = cv2.warpAffine(image, M, (28, 28), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
 
-    # Ensure cropped_image is 28x28
-    assert cropped_image.shape == (28, 28), f"Augmented image is not of shape 28x28 after cropping/scaling, got {cropped_image.shape}."
+    # Apply the translation transformation
+    M_trans = np.float32([[1, 0, tx], [0, 1, ty]])
+    image = cv2.warpAffine(image, M_trans, (28, 28), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
 
-    # Flatten the image back to 1D array
-    augmented_image = cropped_image.flatten()
+    # Add random white noise based on the percentage specified
+    if white_noise_percentage > 0:
+        num_pixels = int(input_size * white_noise_percentage)
+        indices = np.random.choice(range(input_size), num_pixels, replace=False)
+        flat_image = image.flatten()
+        flat_image[indices] = 255  # Set chosen pixels to white
+        image = flat_image.reshape((28, 28))
 
-    # Ensure augmented_image is of the original flattened size
-    assert augmented_image.shape == (input_size,), f"Augmented image is not of the correct flattened size, got {augmented_image.shape}."
-
-    return augmented_image
+    # return image.flatten(), scale_level, angle_level, (tx, ty)
+    return image.flatten()
 
 # Training the neural network
 def train(X, y, epochs, learning_rate, batch_size, early_stopping_patience, graph=False, augment=False):
@@ -93,17 +136,22 @@ def train(X, y, epochs, learning_rate, batch_size, early_stopping_patience, grap
 
             # Apply data augmentation if enabled
             if augment:
-                X_batch = np.array([augment_image(image) for image in X_batch])
+                X_batch = np.array([augment_image(
+                    image,
+                    scale_range=(0.8, 1.2),
+                    angle_range=(-30, 30),
+                    # translation_range=(-5, 5),
+                    # white_noise_percentage=0.1
+                    ) for image in X_batch])
 
-            # Forward pass
+            # Forward pass with ReLU
             hidden1 = sigmoid(np.dot(X_batch, weights_input_hidden1) + biases_hidden1)
             hidden2 = sigmoid(np.dot(hidden1, weights_hidden1_hidden2) + biases_hidden2)
             output = sigmoid(np.dot(hidden2, weights_hidden2_output) + biases_output)
 
-            # Calculate error
-            error = y_batch - output
 
-            # Backpropagation
+            # Backpropagation with ReLU derivatives
+            error = y_batch - output
             d_output = error * sigmoid_derivative(output)
             d_hidden2 = np.dot(d_output, weights_hidden2_output.T) * sigmoid_derivative(hidden2)
             d_hidden1 = np.dot(d_hidden2, weights_hidden1_hidden2.T) * sigmoid_derivative(hidden1)
@@ -124,7 +172,7 @@ def train(X, y, epochs, learning_rate, batch_size, early_stopping_patience, grap
         predictions = np.argmax(output, axis=1)
         true_labels = np.argmax(y, axis=1)
         accuracy = np.mean(predictions == true_labels)
-        loss = np.mean(np.abs(error))
+        loss = cross_entropy(output, y)
 
         # Save the loss and accuracy in their respective history lists
         loss_history.append(loss)
@@ -230,7 +278,6 @@ print("Shape of y:", y.shape)  # Should be (number_of_samples,)
 
 X_train, y_train = X,y
 # Example: Uncomment the following lines to train and save your model
-train(X_train, y_train, epochs=500, learning_rate=25e-5, batch_size=32, early_stopping_patience=10, graph=True, augment=True)
+train(X_train, y_train, epochs=500, learning_rate=8e-4, batch_size=32, early_stopping_patience=10, graph=True, augment=True)
 save_model('my_neural_network.npz')
 # load_model('my_neural_network.npz')
-
