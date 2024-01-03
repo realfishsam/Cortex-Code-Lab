@@ -1,3 +1,6 @@
+#### Quick Note
+The project is trained on [this](https://www.kaggle.com/datasets/scolianni/mnistasjpg) dataset
+
 # Quick Start Guide
 
 This guide will walk you through the process of setting up and running a neural network demo from the Cortex Code Lab repository. Follow these steps for a smooth experience:
