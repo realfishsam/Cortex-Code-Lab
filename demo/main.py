@@ -4,7 +4,11 @@ import numpy as np
 import cv2
 import pprint
 import sys
-sys.path.append('/Users/samueltinnerholm/Documents/GitHub/Cortex-Code-Lab/game/CORTEX_CODE/')
+
+# find the path to the current file
+import os
+path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(f'{path}/CORTEX_CODE/')
 from neuralnet import NeuralNetwork
 
 def find_centroid(image):
