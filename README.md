@@ -8,7 +8,7 @@ This guide will walk you through the process of setting up and running a neural 
 ```git clone https://github.com/realfishsam/Cortex-Code-Lab```
 
 2. **Demo Directory Navigation:** Navigate to the demo directory with the command:
-```cd Cortex-Code-Lab```
+```cd Cortex-Code-Lab/demo```
 
 
 ## How to Use:
@@ -27,8 +27,5 @@ After setting up, run the demo by:
 1. Installing required libraries via the `requirements.txt` file:
 ```pip install -r requirements.txt```
 
-2. Change to Demo Directory: Before running the demo, change to the demo directory with the command:
-```cd demo```
-
-3. Executing the `main.py` file to start the demo:
+2. Executing the `main.py` file to start the demo:
 ```python main.py```
