@@ -27,8 +27,10 @@ Engage with the neural network demo by:
 
 After setting up, run the demo by:
 
-1. Installing required libraries via the `requirements.txt` file:
+1.cd demo
+
+2. Installing required libraries via the `requirements.txt` file:
 ```pip install -r requirements.txt```
 
-2. Executing the `main.py` file to start the demo:
+3. Executing the `main.py` file to start the demo:
 ```python main.py```
