@@ -1,3 +1,5 @@
+https://github.com/realfishsam/Cortex-Code-Lab/assets/92118699/c5efeb1b-0c6b-4731-8df2-1723c1fa8045
+
 #### Quick Note
 The project is trained on [this](https://www.kaggle.com/datasets/scolianni/mnistasjpg) dataset
 
